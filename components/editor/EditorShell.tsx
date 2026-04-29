@@ -1,12 +1,14 @@
 ﻿'use client'
 
+import { AssetPanel } from './AssetPanel'
 import { EditorCanvas } from './EditorCanvas'
 import { EditorToolbar } from './EditorToolbar'
+import { FormatSwitcher } from './FormatSwitcher'
 import { LayersPanel } from './LayersPanel'
 import { MemoryPanel } from './MemoryPanel'
 import { PromptPanel } from './PromptPanel'
-import { FormatSwitcher } from './FormatSwitcher'
 import { StatusBar } from './StatusBar'
+import { StylePanel } from './StylePanel'
 import { TemplatePanel } from './TemplatePanel'
 
 export function EditorShell() {
@@ -27,6 +29,11 @@ export function EditorShell() {
           </div>
 
           <div className="panel-section">
+            <p className="panel-kicker">Assets</p>
+            <AssetPanel />
+          </div>
+
+          <div className="panel-section">
             <p className="panel-kicker">Workflow</p>
             <StatusBar />
           </div>
@@ -38,6 +45,7 @@ export function EditorShell() {
 
         <aside className="studio-right-panel" aria-label="Editor controls">
           <LayersPanel />
+          <StylePanel />
           <PromptPanel />
           <MemoryPanel />
         </aside>

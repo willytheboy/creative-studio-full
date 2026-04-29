@@ -12,6 +12,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }
 
+function getLayerText(layer: LayerRecord) {
+  return String(layer.data.text ?? layer.data.label ?? layer.type)
+}
+
 function EditableLayer({
   layer,
   selected,
@@ -60,7 +64,14 @@ function EditableLayer({
     e.currentTarget.releasePointerCapture(e.pointerId)
   }
 
-  const text = String(layer.data.text ?? layer.data.label ?? layer.type)
+  if (!layer.visible) return null
+
+  const text = getLayerText(layer)
+  const src = typeof layer.data.src === 'string' ? layer.data.src : ''
+  const color = typeof layer.data.color === 'string' ? layer.data.color : '#ffffff'
+  const backgroundColor = typeof layer.data.backgroundColor === 'string' ? layer.data.backgroundColor : ''
+  const fontFamily = typeof layer.data.fontFamily === 'string' ? layer.data.fontFamily : 'Inter, sans-serif'
+  const opacity = typeof layer.data.opacity === 'number' ? layer.data.opacity : 1
 
   return (
     <div
@@ -71,6 +82,7 @@ function EditableLayer({
         width: `${layer.width}%`,
         minHeight: `${layer.height}%`,
         transform: `rotate(${layer.rotation}deg)`,
+        opacity,
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -80,14 +92,23 @@ function EditableLayer({
       }}
       onClick={onSelect}
     >
-      <div
-        className="editable-content"
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={(e) => onText(layer.id, e.currentTarget.innerText)}
-      >
-        {text}
-      </div>
+      {src && (layer.type === 'logo' || layer.type === 'image') ? (
+        <img className="editable-image-layer" src={src} alt={text} draggable={false} />
+      ) : (
+        <div
+          className="editable-content"
+          contentEditable
+          suppressContentEditableWarning
+          style={{
+            color,
+            backgroundColor: layer.type === 'badge' ? backgroundColor || 'rgba(255,255,255,0.92)' : backgroundColor || 'transparent',
+            fontFamily,
+          }}
+          onBlur={(e) => onText(layer.id, e.currentTarget.innerText)}
+        >
+          {text}
+        </div>
+      )}
     </div>
   )
 }
@@ -114,6 +135,7 @@ export function EditorCanvas() {
   }
 
   function addTextLayer(kind: 'headline' | 'caption' | 'cta' | 'logo') {
+    const logoSrc = state.present.branding.logoUrl
     const defaults = {
       headline: { text: copy.headline, x: 8, y: 56, width: 62, height: 10, type: 'text' as const },
       caption: { text: copy.caption, x: 8, y: 70, width: 70, height: 8, type: 'text' as const },
@@ -133,7 +155,15 @@ export function EditorCanvas() {
         rotation: 0,
         locked: false,
         visible: true,
-        data: { text: defaults.text, kind },
+        data: {
+          text: defaults.text,
+          kind,
+          src: kind === 'logo' ? logoSrc : undefined,
+          color: '#ffffff',
+          backgroundColor: kind === 'cta' ? '#ffffff' : 'transparent',
+          fontFamily: 'Inter, sans-serif',
+          opacity: 1,
+        },
       },
     })
   }
