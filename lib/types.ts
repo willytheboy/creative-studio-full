@@ -2,7 +2,7 @@ export type FormatKey = 'story' | 'post' | 'a3'
 export type LayerType = 'image' | 'logo' | 'text' | 'badge'
 export type PersistenceMode = 'indexeddb' | 'memory-only'
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'unavailable'
-export type GenerationStatus = 'idle' | 'loading' | 'ready' | 'error'
+export type GenerationStatus = 'idle' | 'generating' | 'success' | 'error'
 
 export type LayerRecord = {
   id: string

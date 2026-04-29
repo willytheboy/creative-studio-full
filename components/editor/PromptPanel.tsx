@@ -17,9 +17,10 @@ export function PromptPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          brief: prompt.brief,
-          tone: prompt.tone,
+          goal: prompt.goal,
           audience: prompt.audience,
+          style: prompt.style,
+          notes: prompt.notes,
           format: document.format,
           headline: copy.headline,
           caption: copy.caption,
@@ -48,21 +49,11 @@ export function PromptPanel() {
 
       <div className="compact-form">
         <label>
-          Brief
+          Goal
           <textarea
-            value={prompt.brief}
+            value={prompt.goal}
             onChange={(e) =>
-              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'brief', value: e.target.value } })
-            }
-          />
-        </label>
-
-        <label>
-          Tone
-          <input
-            value={prompt.tone}
-            onChange={(e) =>
-              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'tone', value: e.target.value } })
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'goal', value: e.target.value } })
             }
           />
         </label>
@@ -73,6 +64,26 @@ export function PromptPanel() {
             value={prompt.audience}
             onChange={(e) =>
               dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'audience', value: e.target.value } })
+            }
+          />
+        </label>
+
+        <label>
+          Style
+          <input
+            value={prompt.style}
+            onChange={(e) =>
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'style', value: e.target.value } })
+            }
+          />
+        </label>
+
+        <label>
+          Notes
+          <textarea
+            value={prompt.notes}
+            onChange={(e) =>
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'notes', value: e.target.value } })
             }
           />
         </label>
