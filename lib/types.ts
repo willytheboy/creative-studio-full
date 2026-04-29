@@ -95,6 +95,18 @@ export type UndoableEditorState = {
 }
 
 export type EditorAction =
+  | {
+      type: 'TEMPLATE_APPLY'
+      payload: {
+        format: DocumentFormat
+        width: number
+        height: number
+        headline: string
+        caption: string
+        cta: string
+        layers: LayerRecord[]
+      }
+    }
   | { type: 'HYDRATE_STATE'; payload: Partial<EditorSessionState> }
   | { type: 'DOCUMENT_SET_FORMAT'; payload: { format: FormatKey; width: number; height: number; headline: string; caption: string } }
   | { type: 'DOCUMENT_SET_BACKGROUND'; payload: { backgroundImage: string; backgroundPrompt?: string } }

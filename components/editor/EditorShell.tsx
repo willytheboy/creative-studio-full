@@ -102,24 +102,15 @@ function QuickTemplates() {
     const template = templates[key]
 
     dispatch({
-      type: 'DOCUMENT_SET_FORMAT',
+      type: 'TEMPLATE_APPLY',
       payload: {
         format: template.format,
         width: template.width,
         height: template.height,
         headline: template.headline,
         caption: template.caption,
-      },
-    })
-
-    dispatch({ type: 'COPY_SET_HEADLINE', payload: template.headline })
-    dispatch({ type: 'COPY_SET_CAPTION', payload: template.caption })
-    dispatch({ type: 'COPY_SET_CTA', payload: template.cta })
-
-    template.layers.forEach((layer) => {
-      dispatch({
-        type: 'LAYER_ADD',
-        payload: {
+        cta: template.cta,
+        layers: template.layers.map((layer) => ({
           id: crypto.randomUUID(),
           type: layer.type,
           x: layer.x,
@@ -133,8 +124,8 @@ function QuickTemplates() {
             text: layer.text,
             kind: layer.kind,
           },
-        },
-      })
+        })),
+      },
     })
   }
 

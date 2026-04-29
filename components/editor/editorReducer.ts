@@ -14,6 +14,7 @@ function restoreSnapshot(base: EditorSessionState, snapshot: EditorHistorySnapsh
 
 function shouldSnapshot(action: EditorAction) {
   return [
+    'TEMPLATE_APPLY',
     'DOCUMENT_SET_FORMAT',
     'DOCUMENT_SET_BACKGROUND',
     'BRANDING_SET_MODE',
@@ -68,6 +69,32 @@ export function editorReducer(state: UndoableEditorState, action: EditorAction):
       }
       break
 
+    case 'TEMPLATE_APPLY':
+      next = {
+        ...p,
+        document: {
+          ...p.document,
+          format: action.payload.format,
+          width: action.payload.width,
+          height: action.payload.height,
+        },
+        copy: {
+          ...p.copy,
+          headline: action.payload.headline,
+          caption: action.payload.caption,
+          cta: action.payload.cta,
+        },
+        layers: action.payload.layers,
+        selection: {
+          ...p.selection,
+          selectedLayerId: action.payload.layers[0]?.id ?? null,
+        },
+        ui: {
+          ...p.ui,
+          hasLocalEdits: true,
+        },
+      }
+      break
     case 'DOCUMENT_SET_FORMAT':
       next = {
         ...p,
@@ -312,3 +339,4 @@ export function editorReducer(state: UndoableEditorState, action: EditorAction):
     future: [],
   }
 }
+
