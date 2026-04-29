@@ -1,124 +1,229 @@
-﻿'use client'
+﻿$ErrorActionPreference = "Stop"
 
-import { useRef } from 'react'
+$projectRoot = "D:\Development\active\17_Photo-editor-architecture\creative-studio-full"
+Set-Location $projectRoot
+
+Write-Host "Installing Konva canvas dependencies..." -ForegroundColor Cyan
+npm install konva react-konva use-image
+
+$stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$targets = @(
+  "components\editor\EditorCanvas.tsx",
+  "components\editor\EditorToolbar.tsx",
+  "app\globals.css"
+)
+
+foreach ($target in $targets) {
+  if (Test-Path $target) {
+    Copy-Item $target "$target.bak-$stamp"
+  }
+}
+
+@'
+'use client'
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Stage, Layer, Rect, Text, Transformer, Image as KonvaImage, Group } from 'react-konva'
+import type Konva from 'konva'
+import useImage from 'use-image'
 import { useEditor } from './EditorProvider'
 import type { LayerRecord } from '@/lib/types'
 
-function aspectRatio(width: number, height: number) {
-  return `${width} / ${height}`
-}
+type CanvasNode = Konva.Text | Konva.Rect | Konva.Group | Konva.Image
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value))
 }
 
-function EditableLayer({
+function getStageSize(format: string) {
+  if (format === 'story') return { width: 360, height: 640 }
+  if (format === 'post') return { width: 540, height: 540 }
+  return { width: 420, height: 594 }
+}
+
+function BackgroundImage({ src, width, height }: { src: string; width: number; height: number }) {
+  const [image] = useImage(src, 'anonymous')
+
+  return (
+    <>
+      <Rect width={width} height={height} fill="#111" />
+      {image && (
+        <KonvaImage
+          image={image}
+          width={width}
+          height={height}
+          listening={false}
+          opacity={0.92}
+        />
+      )}
+      <Rect
+        width={width}
+        height={height}
+        fillLinearGradientStartPoint={{ x: 0, y: 0 }}
+        fillLinearGradientEndPoint={{ x: 0, y: height }}
+        fillLinearGradientColorStops={[0, 'rgba(0,0,0,0.04)', 1, 'rgba(0,0,0,0.46)']}
+        listening={false}
+      />
+    </>
+  )
+}
+
+function EditableCanvasLayer({
   layer,
   selected,
+  stageWidth,
+  stageHeight,
   onSelect,
-  onMove,
-  onText,
+  onChange,
 }: {
   layer: LayerRecord
   selected: boolean
+  stageWidth: number
+  stageHeight: number
   onSelect: () => void
-  onMove: (id: string, x: number, y: number) => void
-  onText: (id: string, text: string) => void
+  onChange: (patch: Partial<LayerRecord>) => void
 }) {
-  const dragRef = useRef({
-    active: false,
-    startX: 0,
-    startY: 0,
-    layerX: 0,
-    layerY: 0,
-  })
+  const nodeRef = useRef<CanvasNode | null>(null)
+  const transformerRef = useRef<Konva.Transformer>(null)
 
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if ((e.target as HTMLElement).isContentEditable) return
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      layerX: layer.x,
-      layerY: layer.y,
-    }
-    onSelect()
-  }
+  useEffect(() => {
+    if (!selected || !transformerRef.current || !nodeRef.current) return
+    transformerRef.current.nodes([nodeRef.current])
+    transformerRef.current.getLayer()?.batchDraw()
+  }, [selected])
 
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current.active) return
-    const dx = e.clientX - dragRef.current.startX
-    const dy = e.clientY - dragRef.current.startY
-    onMove(layer.id, dragRef.current.layerX + dx / 4, dragRef.current.layerY + dy / 4)
-  }
-
-  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (!dragRef.current.active) return
-    dragRef.current.active = false
-    e.currentTarget.releasePointerCapture(e.pointerId)
-  }
-
+  const x = (layer.x / 100) * stageWidth
+  const y = (layer.y / 100) * stageHeight
+  const width = (layer.width / 100) * stageWidth
+  const height = (layer.height / 100) * stageHeight
   const text = String(layer.data.text ?? layer.data.label ?? layer.type)
 
+  function commitPosition(node: CanvasNode) {
+    onChange({
+      x: clamp((node.x() / stageWidth) * 100, 0, 98),
+      y: clamp((node.y() / stageHeight) * 100, 0, 98),
+    })
+  }
+
+  function commitTransform(node: CanvasNode) {
+    const scaleX = node.scaleX()
+    const scaleY = node.scaleY()
+    node.scaleX(1)
+    node.scaleY(1)
+
+    onChange({
+      x: clamp((node.x() / stageWidth) * 100, 0, 98),
+      y: clamp((node.y() / stageHeight) * 100, 0, 98),
+      width: clamp(((width * scaleX) / stageWidth) * 100, 3, 100),
+      height: clamp(((height * scaleY) / stageHeight) * 100, 3, 100),
+      rotation: Math.round(node.rotation()),
+    })
+  }
+
+  const common = {
+    x,
+    y,
+    width,
+    height,
+    rotation: layer.rotation,
+    draggable: !layer.locked,
+    onClick: onSelect,
+    onTap: onSelect,
+    onDragEnd: (event: Konva.KonvaEventObject<DragEvent>) => commitPosition(event.target as CanvasNode),
+    onTransformEnd: (event: Konva.KonvaEventObject<Event>) => commitTransform(event.target as CanvasNode),
+  }
+
+  let node: React.ReactNode
+
+  if (layer.type === 'badge') {
+    node = (
+      <Group ref={(nodeInstance) => { nodeRef.current = nodeInstance }} {...common}>
+        <Rect width={width} height={height} fill="#ffffff" cornerRadius={18} shadowColor="black" shadowOpacity={0.12} shadowBlur={12} />
+        <Text
+          text={text}
+          width={width}
+          height={height}
+          align="center"
+          verticalAlign="middle"
+          fill="#111111"
+          fontSize={Math.max(14, height * 0.32)}
+          fontStyle="bold"
+        />
+      </Group>
+    )
+  } else if (layer.type === 'logo') {
+    node = (
+      <Group ref={(nodeInstance) => { nodeRef.current = nodeInstance }} {...common}>
+        <Rect width={width} height={height} stroke="#ffffff" dash={[8, 6]} cornerRadius={12} fill="rgba(255,255,255,0.12)" />
+        <Text
+          text={text}
+          width={width}
+          height={height}
+          align="center"
+          verticalAlign="middle"
+          fill="#ffffff"
+          fontSize={Math.max(12, height * 0.28)}
+          fontStyle="bold"
+        />
+      </Group>
+    )
+  } else {
+    node = (
+      <Text
+        ref={(nodeInstance) => { nodeRef.current = nodeInstance }}
+        {...common}
+        text={text}
+        fill="#ffffff"
+        fontSize={Math.max(18, height * 0.42)}
+        fontStyle="bold"
+        lineHeight={0.98}
+        shadowColor="black"
+        shadowOpacity={0.18}
+        shadowBlur={10}
+      />
+    )
+  }
+
   return (
-    <div
-      className={`editable-layer layer-${layer.type} ${selected ? 'selected-layer' : ''}`}
-      style={{
-        left: `${layer.x}%`,
-        top: `${layer.y}%`,
-        width: `${layer.width}%`,
-        minHeight: `${layer.height}%`,
-        transform: `rotate(${layer.rotation}deg)`,
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onLostPointerCapture={() => {
-        dragRef.current.active = false
-      }}
-      onClick={onSelect}
-    >
-      <div
-        className="editable-content"
-        contentEditable
-        suppressContentEditableWarning
-        onBlur={(e) => onText(layer.id, e.currentTarget.innerText)}
-      >
-        {text}
-      </div>
-    </div>
+    <>
+      {node}
+      {selected && (
+        <Transformer
+          ref={transformerRef}
+          rotateEnabled
+          borderStroke="#ffffff"
+          anchorStroke="#075f65"
+          anchorFill="#ffffff"
+          anchorSize={10}
+          anchorCornerRadius={5}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 20 || newBox.height < 20) return oldBox
+            return newBox
+          }}
+        />
+      )}
+    </>
   )
 }
 
 export function EditorCanvas() {
   const { state, dispatch } = useEditor()
-  const { document, copy, branding, layers, selection } = state.present
+  const { document, copy, layers, selection } = state.present
+  const stageRef = useRef<Konva.Stage>(null)
+  const [zoom, setZoom] = useState(1)
 
-  function moveLayer(id: string, x: number, y: number) {
-    dispatch({
-      type: 'LAYER_UPDATE',
-      payload: {
-        id,
-        patch: {
-          x: clamp(x, 0, 92),
-          y: clamp(y, 0, 92),
-        },
-      },
-    })
+  const stageSize = useMemo(() => getStageSize(document.format), [document.format])
+
+  function updateLayer(id: string, patch: Partial<LayerRecord>) {
+    dispatch({ type: 'LAYER_UPDATE', payload: { id, patch } })
   }
 
-  function updateLayerText(id: string, text: string) {
-    dispatch({ type: 'LAYER_UPDATE_DATA', payload: { id, data: { text } } })
-  }
-
-  function addTextLayer(kind: 'headline' | 'caption' | 'cta' | 'logo') {
+  function addLayer(kind: 'headline' | 'caption' | 'cta' | 'logo') {
     const defaults = {
-      headline: { text: copy.headline, x: 8, y: 56, width: 62, height: 10, type: 'text' as const },
-      caption: { text: copy.caption, x: 8, y: 70, width: 70, height: 8, type: 'text' as const },
-      cta: { text: copy.cta, x: 8, y: 82, width: 36, height: 7, type: 'badge' as const },
-      logo: { text: 'LOGO', x: 66, y: 90, width: 28, height: 6, type: 'logo' as const },
+      headline: { type: 'text' as const, text: copy.headline, x: 8, y: 58, width: 72, height: 12 },
+      caption: { type: 'text' as const, text: copy.caption, x: 8, y: 72, width: 70, height: 8 },
+      cta: { type: 'badge' as const, text: copy.cta, x: 8, y: 84, width: 34, height: 7 },
+      logo: { type: 'logo' as const, text: 'LOGO', x: 66, y: 90, width: 28, height: 6 },
     }[kind]
 
     dispatch({
@@ -138,51 +243,66 @@ export function EditorCanvas() {
     })
   }
 
-  const hasEditableLayers = layers.length > 0
+  function exportPng() {
+    const uri = stageRef.current?.toDataURL({ pixelRatio: 3 })
+    if (!uri) return
+
+    const link = window.document.createElement('a')
+    link.download = `creative-studio-${document.format}.png`
+    link.href = uri
+    link.click()
+  }
 
   return (
-    <div className="editor-card">
+    <div className="editor-card canvas-editor-card">
       <div className="canvas-actions">
-        <button onClick={() => addTextLayer('headline')}>Add headline</button>
-        <button onClick={() => addTextLayer('caption')}>Add caption</button>
-        <button onClick={() => addTextLayer('cta')}>Add CTA</button>
-        <button onClick={() => addTextLayer('logo')}>Add logo</button>
+        <button onClick={() => addLayer('headline')}>Headline</button>
+        <button onClick={() => addLayer('caption')}>Caption</button>
+        <button onClick={() => addLayer('cta')}>CTA</button>
+        <button onClick={() => addLayer('logo')}>Logo</button>
+        <span className="canvas-spacer" />
+        <button onClick={() => setZoom((value) => clamp(value - 0.1, 0.5, 1.6))}>−</button>
+        <button onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
+        <button onClick={() => setZoom((value) => clamp(value + 0.1, 0.5, 1.6))}>+</button>
+        <button className="primary-button small-primary" onClick={exportPng}>Export PNG</button>
       </div>
 
-      <div className="canvas-wrap">
-        <div
-          className="artboard"
-          style={{
-            aspectRatio: aspectRatio(document.width, document.height),
-            backgroundImage: `url(${document.backgroundImage})`,
+      <div className="konva-stage-wrap">
+        <Stage
+          ref={stageRef}
+          width={stageSize.width}
+          height={stageSize.height}
+          scaleX={zoom}
+          scaleY={zoom}
+          className="konva-stage"
+          onMouseDown={(event) => {
+            if (event.target === event.target.getStage()) {
+              dispatch({ type: 'LAYER_SELECT', payload: null })
+            }
+          }}
+          onTouchStart={(event) => {
+            if (event.target === event.target.getStage()) {
+              dispatch({ type: 'LAYER_SELECT', payload: null })
+            }
           }}
         >
-          <div className="overlay" />
-          <div className="format-tag">{document.format.toUpperCase()}</div>
-
-          {!hasEditableLayers && (
-            <>
-              <div className="copy-block">
-                <h2>{copy.headline}</h2>
-                <p>{copy.caption}</p>
-                <div className="cta-chip">{copy.cta}</div>
-              </div>
-              <div className="guide-box" />
-              <div className="logo-badge">LOGO · {branding.appliedAnchor}</div>
-            </>
-          )}
-
-          {layers.map((layer) => (
-            <EditableLayer
-              key={layer.id}
-              layer={layer}
-              selected={selection.selectedLayerId === layer.id}
-              onSelect={() => dispatch({ type: 'LAYER_SELECT', payload: layer.id })}
-              onMove={moveLayer}
-              onText={updateLayerText}
-            />
-          ))}
-        </div>
+          <Layer>
+            <BackgroundImage src={document.backgroundImage} width={stageSize.width} height={stageSize.height} />
+            {layers.map((layer) =>
+              layer.visible ? (
+                <EditableCanvasLayer
+                  key={layer.id}
+                  layer={layer}
+                  selected={selection.selectedLayerId === layer.id}
+                  stageWidth={stageSize.width}
+                  stageHeight={stageSize.height}
+                  onSelect={() => dispatch({ type: 'LAYER_SELECT', payload: layer.id })}
+                  onChange={(patch) => updateLayer(layer.id, patch)}
+                />
+              ) : null
+            )}
+          </Layer>
+        </Stage>
       </div>
     </div>
   )
