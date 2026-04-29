@@ -516,3 +516,8 @@ textarea {
     min-height: 70vh;
   }
 }
+
+.template-list {
+  display: grid;
+  gap: 8px;
+}
