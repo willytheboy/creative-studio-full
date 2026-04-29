@@ -1,32 +1,90 @@
-'use client'
+﻿'use client'
 
+import { useState } from 'react'
 import { useEditor } from './EditorProvider'
 
 export function PromptPanel() {
   const { state, dispatch } = useEditor()
-  const prompt = state.present.prompt
+  const { prompt, copy, document } = state.present
+  const [busy, setBusy] = useState(false)
 
   async function generatePrompt() {
-    dispatch({ type: 'PROMPT_SET_STATUS', payload: 'loading' })
-    const res = await fetch('/api/generate-prompt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prompt),
-    })
-    const data = await res.json()
-    dispatch({ type: 'PROMPT_SET_GENERATED', payload: data.prompt })
-    dispatch({ type: 'PROMPT_SET_STATUS', payload: 'ready' })
+    setBusy(true)
+    dispatch({ type: 'PROMPT_SET_STATUS', payload: 'generating' })
+
+    try {
+      const response = await fetch('/api/generate-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          brief: prompt.brief,
+          tone: prompt.tone,
+          audience: prompt.audience,
+          format: document.format,
+          headline: copy.headline,
+          caption: copy.caption,
+        }),
+      })
+
+      const data = await response.json()
+      dispatch({ type: 'PROMPT_SET_GENERATED', payload: data.prompt ?? 'No prompt generated.' })
+      dispatch({ type: 'PROMPT_SET_STATUS', payload: 'idle' })
+    } catch {
+      dispatch({ type: 'PROMPT_SET_GENERATED', payload: 'Prompt generation failed. Try again.' })
+      dispatch({ type: 'PROMPT_SET_STATUS', payload: 'error' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <div className="panel-card">
-      <h3>AI Prompt</h3>
-      <label className="field"><span>Goal</span><input value={prompt.goal} onChange={(e) => dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'goal', value: e.target.value } })} /></label>
-      <label className="field"><span>Audience</span><input value={prompt.audience} onChange={(e) => dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'audience', value: e.target.value } })} /></label>
-      <label className="field"><span>Style</span><input value={prompt.style} onChange={(e) => dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'style', value: e.target.value } })} /></label>
-      <label className="field"><span>Notes</span><textarea rows={4} value={prompt.notes} onChange={(e) => dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'notes', value: e.target.value } })} /></label>
-      <button className="primary-btn" onClick={generatePrompt}>Generate prompt</button>
-      <div className="output-card">{prompt.generatedPrompt || 'Generated prompt will appear here.'}</div>
-    </div>
+    <section className="side-card">
+      <div className="side-card-header">
+        <div>
+          <p className="panel-kicker">AI assistant</p>
+          <h2>Prompt</h2>
+        </div>
+      </div>
+
+      <div className="compact-form">
+        <label>
+          Brief
+          <textarea
+            value={prompt.brief}
+            onChange={(e) =>
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'brief', value: e.target.value } })
+            }
+          />
+        </label>
+
+        <label>
+          Tone
+          <input
+            value={prompt.tone}
+            onChange={(e) =>
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'tone', value: e.target.value } })
+            }
+          />
+        </label>
+
+        <label>
+          Audience
+          <input
+            value={prompt.audience}
+            onChange={(e) =>
+              dispatch({ type: 'PROMPT_SET_FIELD', payload: { key: 'audience', value: e.target.value } })
+            }
+          />
+        </label>
+
+        <button className="primary-button full-width" disabled={busy} onClick={generatePrompt}>
+          {busy ? 'Generating...' : 'Generate prompt'}
+        </button>
+
+        {prompt.generatedPrompt && (
+          <div className="prompt-output">{prompt.generatedPrompt}</div>
+        )}
+      </div>
+    </section>
   )
 }

@@ -1,17 +1,32 @@
-'use client'
+﻿'use client'
 
 import { useEditor } from './EditorProvider'
 
 export function EditorToolbar() {
-  const { dispatch, undo, redo, canUndo, canRedo } = useEditor()
+  const { state, dispatch } = useEditor()
+  const canUndo = state.past.length > 0
+  const canRedo = state.future.length > 0
+  const { document } = state.present
 
   return (
-    <div className="toolbar">
-      <button onClick={() => dispatch({ type: 'LAYER_ADD', payload: { id: crypto.randomUUID(), type: 'logo', x: 20, y: 20, width: 120, height: 48, rotation: 0, locked: false, visible: true, data: { label: 'YOUR LOGO' } } })}>Add logo layer</button>
-      <button onClick={() => dispatch({ type: 'BRANDING_SET_ANCHOR', payload: 'bottom-right-flex' })}>Bottom-right</button>
-      <button onClick={() => dispatch({ type: 'BRANDING_SET_MODE', payload: 'auto-manual' })}>Auto + manual</button>
-      <button onClick={undo} disabled={!canUndo}>Undo</button>
-      <button onClick={redo} disabled={!canRedo}>Redo</button>
-    </div>
+    <header className="studio-topbar">
+      <div className="brand-lockup">
+        <div className="brand-mark" aria-hidden="true">CS</div>
+        <div>
+          <p className="brand-title">Creative Studio</p>
+          <p className="brand-subtitle">{document.format.toUpperCase()} · {document.width} × {document.height}</p>
+        </div>
+      </div>
+
+      <div className="toolbar-group" role="group" aria-label="History controls">
+        <button className="ghost-button" disabled={!canUndo} onClick={() => dispatch({ type: 'UNDO' })}>Undo</button>
+        <button className="ghost-button" disabled={!canRedo} onClick={() => dispatch({ type: 'REDO' })}>Redo</button>
+      </div>
+
+      <div className="toolbar-group toolbar-push">
+        <button className="ghost-button">Preview</button>
+        <button className="primary-button">Export</button>
+      </div>
+    </header>
   )
 }
