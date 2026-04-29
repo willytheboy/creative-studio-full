@@ -6,15 +6,15 @@ export function EditorToolbar() {
   const { state, dispatch } = useEditor()
   const canUndo = state.past.length > 0
   const canRedo = state.future.length > 0
-  const { document, layers } = state.present
+  const { document } = state.present
 
   return (
     <header className="studio-topbar">
       <div className="brand-lockup">
         <div className="brand-mark" aria-hidden="true">CS</div>
         <div>
-          <p className="brand-title">Creative Studio Pro</p>
-          <p className="brand-subtitle">{document.format.toUpperCase()} · {layers.length} layers · canvas export</p>
+          <p className="brand-title">Creative Studio</p>
+          <p className="brand-subtitle">{document.format.toUpperCase()} · {document.width} × {document.height}</p>
         </div>
       </div>
 
@@ -24,8 +24,8 @@ export function EditorToolbar() {
       </div>
 
       <div className="toolbar-group toolbar-push">
-        <button className="ghost-button">Templates</button>
-        <button className="primary-button">Publish-ready</button>
+        <button className="ghost-button">Preview</button>
+        <button className="primary-button">Export</button>
       </div>
     </header>
   )
