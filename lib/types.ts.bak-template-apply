@@ -1,4 +1,4 @@
-﻿export type FormatKey = 'story' | 'post' | 'a3'
+export type FormatKey = 'story' | 'post' | 'a3'
 export type LayerType = 'image' | 'logo' | 'text' | 'badge'
 export type PersistenceMode = 'indexeddb' | 'memory-only'
 export type AutosaveStatus = 'idle' | 'saving' | 'saved' | 'unavailable'
@@ -98,7 +98,7 @@ export type EditorAction =
   | {
       type: 'TEMPLATE_APPLY'
       payload: {
-        format: 'story' | 'post' | 'a3'
+        format: DocumentFormat
         width: number
         height: number
         headline: string
@@ -134,5 +134,3 @@ export type EditorAction =
   | { type: 'UI_SET_LAST_SAVED'; payload: string | null }
   | { type: 'UNDO' }
   | { type: 'REDO' }
-
-
